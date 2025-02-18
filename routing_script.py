@@ -1,6 +1,5 @@
 import requests
 import re
-import netmiko
 import os
 
 from netmiko import ConnectHandler
