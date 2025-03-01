@@ -27,6 +27,10 @@ youtube_networks = [
     '209.85.128.0/17', '216.58.192.0/19', '216.73.80.0/20', '216.239.32.0/19'
     ]
 
+jetbrains_networks = ['3.160.212.0/24', '108.138.199.0/24', '108.157.188.0/24']
+
+services = youtube_networks + jetbrains_networks
+
 ipv4_list = []
 commands = []
 
@@ -42,8 +46,8 @@ for ip in ip_list:
         else:
             ipv4_list.append(IPNetwork(match.group() + '0/24'))
 
-for yt_net in youtube_networks:
-    ipv4_list.append(IPNetwork(yt_net))
+for service in services:
+    ipv4_list.append(IPNetwork(service))
 
 ipv4_list = list(set(ipv4_list))
 merged_list = cidr_merge(ipv4_list)
