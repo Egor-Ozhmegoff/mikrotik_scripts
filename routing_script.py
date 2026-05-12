@@ -68,7 +68,7 @@ def get_ips_form_router(ssh):
 
 if __name__ == '__main__':
     download_file('https://raw.githubusercontent.com/touhidurrr/iplist-youtube/refs/heads/main/lists/cidr4.txt', 'networks/youtube.txt')
-    download_file('https://raw.githubusercontent.com/FabrizioCafolla/openai-crawlers-ip-ranges/refs/heads/main/openai/openai-cidr-ranges-all.txt', 'chat_gpt.txt')
+    download_file('https://raw.githubusercontent.com/FabrizioCafolla/openai-crawlers-ip-ranges/refs/heads/main/openai/openai-cidr-ranges-all.txt', 'networks/chat_gpt.txt')
     ssh = ssh()
     blocked_ips = get_blocked_ips()
     mikrotik_ips = get_ips_form_router(ssh)
