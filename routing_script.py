@@ -41,7 +41,10 @@ def get_blocked_ips():
                     ipv4_list.append(IPNetwork(line.strip('\n').replace(' ', '') + '/32'))
     ipv4_list = cidr_merge(list(set(ipv4_list)))
     for ip in ipv4_list:
-        blocked_ips.append(str(ip))
+        if '/32' in str(ip):
+            blocked_ips.append(str(ip).replace('/32',''))
+        else:
+            blocked_ips.append(str(ip))
     return blocked_ips
 
 def ssh():
@@ -57,13 +60,13 @@ def ssh():
     return ConnectHandler(**mikrotik)
 
 def get_ips_form_router(ssh):
-    regex_net = r'\d+\.\d+\.\d+\.\d+\/\d+'
+    regex_net = r'((\d+\.){3}\d+\/\d+)|((\d+\.){3}\d+)'
     mikrot_output = ssh.send_command("ip firewall address-list print without-paging", read_timeout=60).split('\n')
     current_addr_list = []
     for line in mikrot_output:
-        net = re.search(regex_net, line)
-        if net:
-            current_addr_list.append(net.group())
+        match = re.search(regex_net, line)
+        if match:
+            current_addr_list.append(match.group(0))
     return current_addr_list
 
 if __name__ == '__main__':
