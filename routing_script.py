@@ -1,62 +1,44 @@
 import requests
 import re
 import os
+import sys
 
 from netmiko import ConnectHandler
 from netaddr import IPNetwork, cidr_merge
 
+def download_file(url, output_filename="youtube_networks"):
+    try:
+        # Выполняем GET-запрос с потоковой загрузкой
+        response = requests.get(url, stream=True)
+        response.raise_for_status()  # Проверяем статус код (если не 200, выбросит исключение)
+
+        # Открываем файл в бинарном режиме для записи
+        with open(output_filename, 'wb') as file:
+            # Записываем содержимое порциями для экономии памяти
+            for chunk in response.iter_content(chunk_size=8192):
+                if chunk:
+                    file.write(chunk)
+
+        print(f"Файл успешно сохранён как {output_filename}")
+
+    except requests.exceptions.RequestException as e:
+        print(f"Ошибка при скачивании файла: {e}")
+        sys.exit(1)
+    except IOError as e:
+        print(f"Ошибка при записи файла: {e}")
+        sys.exit(1)
+
 def get_blocked_ips():
-    url = 'https://reestr.rublacklist.net/api/v3/ips/'
-    regex = r'\d+\.\d+\.\d+\.'
-    mask_regex = r'\/2[5-9]|3[0-2]'
-    data = requests.request(url=url, method='GET').content
-    ip_list = [ net.replace('"', '').lstrip(' ') for net in str(data).split(',') ]
-    ipv4_list = []
     blocked_ips = []
-
-    with open ('youtube_networks.txt', 'r') as file:
-        youtube_networks = [line.strip('\n') for line in file.readlines()]
-    # youtube_networks = [
-    #     '8.8.4.0/24', '8.8.8.0/24', '8.34.208.0/20', '8.35.192.0/20', '23.236.48.0/20', '23.251.128.0/19', '34.0.0.0/15',
-    #     '34.2.0.0/16', '34.3.0.0/23', '34.3.3.0/24', '34.3.4.0/24', '34.3.8.0/21', '34.3.16.0/20', '34.3.32.0/19',
-    #     '34.3.64.0/18', '34.4.0.0/14', '34.8.0.0/13', '34.16.0.0/12', '34.32.0.0/11', '34.64.0.0/10', '34.128.0.0/10',
-    #     '35.184.0.0/13', '35.192.0.0/14', '35.196.0.0/15', '35.198.0.0/16', '35.199.0.0/17', '35.199.128.0/18',
-    #     '35.200.0.0/13', '35.208.0.0/12', '35.224.0.0/12', '35.240.0.0/13', '57.140.192.0/18', '64.15.112.0/20',
-    #     '64.233.160.0/19', '66.22.228.0/23', '66.102.0.0/20', '66.249.64.0/19', '70.32.128.0/19', '72.14.192.0/18',
-    #     '74.125.0.0/16', '104.154.0.0/15', '104.196.0.0/14', '104.237.160.0/19', '107.167.160.0/19', '107.178.192.0/18',
-    #     '108.59.80.0/20', '108.170.192.0/18', '108.177.0.0/17', '130.211.0.0/16', '136.22.160.0/20', '136.22.176.0/21',
-    #     '136.22.184.0/23', '136.22.186.0/24', '136.124.0.0/15', '142.250.0.0/15', '146.148.0.0/17', '152.65.208.0/22',
-    #     '152.65.214.0/23', '152.65.218.0/23', '152.65.222.0/23', '152.65.224.0/19', '162.120.128.0/17', '162.216.148.0/22',
-    #     '162.222.176.0/21', '172.110.32.0/21', '172.217.0.0/16', '172.253.0.0/16', '173.194.0.0/16', '173.255.112.0/20',
-    #     '192.158.28.0/22', '192.178.0.0/15', '193.186.4.0/24', '199.36.154.0/23', '199.36.156.0/24', '199.192.112.0/22',
-    #     '199.223.232.0/21', '207.223.160.0/20', '208.65.152.0/22', '208.68.108.0/22', '208.81.188.0/22', '208.117.224.0/19',
-    #     '209.85.128.0/17', '216.58.192.0/19', '216.73.80.0/20', '216.239.32.0/19'
-    #     ]
-
-    jetbrains_networks = ['3.160.212.0/24', '108.138.199.0/24', '108.157.188.0/24']
-    instagram_networks = [
-        '147.75.208.0/20', '185.89.216.0/22', '31.13.24.0/21', '31.13.64.0/19', '31.13.96.0/19', '45.64.40.0/22',
-        '66.220.144.0/20', '69.63.176.0/20', '69.171.224.0/19', '74.119.76.0/22','102.132.96.0/20', '103.4.96.0/22',
-        '129.134.0.0/16', '157.240.0.0/16', '173.252.64.0/18', '179.60.192.0/22', '185.60.216.0/22', '204.15.20.0/22',
-        '163.70.151.0/24', '163.70.147.0/24'
-        ]
-    discord = ['34.0.0.0/15', '34.3.2.0/24','34.2.0.0/16','34.3.0.0/23', '35.192.0.0/12', '35.240.0.0/13',
-               '35.224.0.0/12', '35.208.0.0/12', '5.200.14.128/25', '34.64.0.0/16', '66.22.192.0/18']
-    services = youtube_networks + jetbrains_networks + instagram_networks + discord
-
-    for ip in ip_list:
-        match = re.match(regex, ip)
-        if match:
-            if '/' in ip:
-                mask_match = re.match(mask_regex, ip)
-                if mask_match:
-                    ipv4_list.append(IPNetwork(match.group() + '0/24'))
+    ipv4_list = []
+    blocked_files = [i for i in next(os.walk('./networks'))[2]]
+    for blocked_file in blocked_files:
+        with open (f'networks/{blocked_file}', 'r') as file:
+            for line in file.readlines():
+                if '/' in line:
+                    ipv4_list.append(IPNetwork(line.strip('\n')))
                 else:
-                    ipv4_list.append(IPNetwork(ip))
-            else:
-                ipv4_list.append(IPNetwork(match.group() + '0/24'))
-    for service in services:
-        ipv4_list.append(IPNetwork(service))
+                    ipv4_list.append(IPNetwork(line.strip('\n').replace(' ', '') + '/32'))
     ipv4_list = cidr_merge(list(set(ipv4_list)))
     for ip in ipv4_list:
         blocked_ips.append(str(ip))
@@ -85,6 +67,8 @@ def get_ips_form_router(ssh):
     return current_addr_list
 
 if __name__ == '__main__':
+    download_file('https://raw.githubusercontent.com/touhidurrr/iplist-youtube/refs/heads/main/lists/cidr4.txt', 'networks/youtube.txt')
+    download_file('https://raw.githubusercontent.com/FabrizioCafolla/openai-crawlers-ip-ranges/refs/heads/main/openai/openai-cidr-ranges-all.txt', 'chat_gpt.txt')
     ssh = ssh()
     blocked_ips = get_blocked_ips()
     mikrotik_ips = get_ips_form_router(ssh)
@@ -117,8 +101,8 @@ if __name__ == '__main__':
 
     if answer == 'y':
         if delete_commands:
-            ssh.send_config_set(delete_commands)
+            deleted = ssh.send_config_set(delete_commands)
         if add_commands:
-            ssh.send_config_set(add_commands)
+            added = ssh.send_config_set(add_commands)
     else:
         exit(0)
